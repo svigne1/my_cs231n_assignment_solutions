@@ -128,7 +128,7 @@ class FullyConnectedNet(object):
     the architecture will be
 
     {affine - [batch norm] - relu - [dropout]} x (L - 1) - affine - softmax
-    ^^ I can daydream about this line all day!
+    ^^ What a line. I can keep daydreaming about this all day!
 
     where batch normalization and dropout are optional, and the {...} block is
     repeated L - 1 times.
@@ -185,6 +185,12 @@ class FullyConnectedNet(object):
         for i in xrange(len(layer_dims)-1):
             self.params['W'+str(i+1)] = weight_scale * np.random.randn(layer_dims[i], layer_dims[i+1])
             self.params['b'+str(i+1)] = np.zeros(layer_dims[i+1])
+
+        # Batch Norm initialization - Number of BatchNorm layers is Number of Weight layers - 1
+        if self.use_batchnorm:
+            for i in xrange(len(layer_dims)-2):
+                self.params['gamma'+str(i+1)] = np.ones(layer_dims[i+1])
+                self.params['beta'+str(i+1)] = np.zeros(layer_dims[i+1])
 
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -250,10 +256,12 @@ class FullyConnectedNet(object):
 
         # Initializing it with raw_pixel input
         layer_input = X
-
-        # Relu layer iteration
         for i in xrange(2, 2+relu_layers):
-            layer_input, layer_cache[i] = affine_relu_forward(layer_input, self.params['W'+str(i-1)], self.params['b'+str(i-1)])
+            if self.use_batchnorm:
+                layer_input, layer_cache[i] = affine_batch_relu_forward(layer_input, self.params['W'+str(i-1)], self.params['b'+str(i-1)], self.params['gamma'+str(i-1)], self.params['beta'+str(i-1)], self.bn_params[i-2])
+            else:
+                layer_input, layer_cache[i] = affine_relu_forward(layer_input, self.params['W'+str(i-1)], self.params['b'+str(i-1)])
+
 
         # This is the final Affine layer for softmax
         final = relu_layers + 2
@@ -287,9 +295,11 @@ class FullyConnectedNet(object):
         # Softmax affine layer
         dlayer, grads['W'+str(final-1)], grads['b'+str(final-1)] = affine_backward(dfinal, layer_cache[final])
 
-        # Relu Layers
         for i in reversed(xrange(2, 2+relu_layers)):
-            dlayer, grads['W'+str(i-1)], grads['b'+str(i-1)] = affine_relu_backward(dlayer, layer_cache[i])
+            if self.use_batchnorm:
+                dlayer, grads['W'+str(i-1)], grads['b'+str(i-1)], grads['gamma'+str(i-1)], grads['beta'+str(i-1)] = affine_batch_relu_backward(dlayer, layer_cache[i])
+            else:
+                dlayer, grads['W'+str(i-1)], grads['b'+str(i-1)] = affine_relu_backward(dlayer, layer_cache[i])
 
         # Regularization loss & gradient
         for i in xrange(1, final):
