@@ -254,13 +254,18 @@ class FullyConnectedNet(object):
 
         layer_cache = {}
 
-        # Initializing it with raw_pixel input
+        # Initial input is raw_pixel input
         layer_input = X
+
         for i in xrange(2, 2+relu_layers):
             if self.use_batchnorm:
                 layer_input, layer_cache[i] = affine_batch_relu_forward(layer_input, self.params['W'+str(i-1)], self.params['b'+str(i-1)], self.params['gamma'+str(i-1)], self.params['beta'+str(i-1)], self.bn_params[i-2])
             else:
                 layer_input, layer_cache[i] = affine_relu_forward(layer_input, self.params['W'+str(i-1)], self.params['b'+str(i-1)])
+
+            if self.use_dropout:
+                layer_input, drop_cache = dropout_forward(layer_input, self.dropout_param)
+                layer_cache[i] = (drop_cache,) + layer_cache[i]
 
 
         # This is the final Affine layer for softmax
@@ -296,6 +301,13 @@ class FullyConnectedNet(object):
         dlayer, grads['W'+str(final-1)], grads['b'+str(final-1)] = affine_backward(dfinal, layer_cache[final])
 
         for i in reversed(xrange(2, 2+relu_layers)):
+            # Dropout
+            if self.use_dropout:
+                dlayer = dropout_backward(dlayer, layer_cache[i][0])
+                # Remove dropout cache
+                layer_cache[i] = layer_cache[i][1:]
+
+            # Batch Norm
             if self.use_batchnorm:
                 dlayer, grads['W'+str(i-1)], grads['b'+str(i-1)], grads['gamma'+str(i-1)], grads['beta'+str(i-1)] = affine_batch_relu_backward(dlayer, layer_cache[i])
             else:
