@@ -1,6 +1,7 @@
 from builtins import range
 import numpy as np
-
+from cs231n.im2col import *
+from cs231n.my_im2col import *
 
 def affine_forward(x, w, b):
     """
@@ -405,11 +406,34 @@ def conv_forward_naive(x, w, b, conv_param):
     # TODO: Implement the convolutional forward pass.                         #
     # Hint: you can use the function np.pad for padding.                      #
     ###########################################################################
-    pass
+
+    pad = conv_param["pad"]
+    stride = conv_param["stride"]
+
+    N, C, H, W = x.shape
+    F, C, HF, WF = w.shape
+
+    # Output image shape
+    HO = int((H + 2*pad - HF) / stride + 1)
+    WO = int((W + 2*pad - WF) / stride + 1)
+
+    w_reshaped = w.reshape(F, -1)
+
+    # Gives (N, HO*WO, HF * WF * C), the convolutional cubes extracted from original image
+    all_cubes = my_im2col(x, w.shape, pad, stride)
+
+    # Dot gives (N, HO*WO, F)
+    out = np.tensordot(all_cubes, w_reshaped.T, axes=([2],[0])) + b
+    # Transpose -> (N, HO*WO, F) turns into (N, F, HO*WO)
+    out = np.transpose(out, axes=(0,2,1))
+    # (N, F, HO*WO) to (N, F, HO, WO)
+    out = out.reshape(N, F, HO, WO)
+
+    cache = (all_cubes, x.shape, w, b, conv_param)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
-    cache = (x, w, b, conv_param)
+
     return out, cache
 
 
@@ -430,7 +454,34 @@ def conv_backward_naive(dout, cache):
     ###########################################################################
     # TODO: Implement the convolutional backward pass.                        #
     ###########################################################################
-    pass
+    x_conv, x_shape, w, b, conv_param = cache
+    N, F, HO, WO = dout.shape
+    F, C, HF, WF = w.shape
+    pad = conv_param["pad"]
+    stride = conv_param["stride"]
+
+    dw = w * 0
+    dx = np.zeros(x_shape)
+
+    w_flat = w.reshape(F, -1)
+    dout_flat = dout.reshape(N, F, -1)
+
+    for i in range(N):
+        # (F, HO*WO) dotted with (HO*WO, HF*WF*C) and reshaped back to right dw shape
+        dw = dw + dout_flat[i].dot(x_conv[i]).reshape(F, C, HF, WF)
+        # (HO*WO, F) dotted with (F, HF*WF*C)
+        grads = dout_flat[i].T.dot(w_flat)
+        # These grads in HO*WO are fed back to appropriate H*W elements of the original image.
+        dxi_pad = my_col2im(grads, x_shape, w.shape, pad, stride)
+        # Padding rows & column gradients are removed
+        dx[i] = dxi_pad[:, pad:-pad, pad:-pad]
+
+    # (N, F, HO*WO) turns into (N, F)
+    db = np.sum(dout_flat, axis=2)
+    # (N, F) turns into (F,)
+    db = np.sum(db, axis=0)
+
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -456,11 +507,38 @@ def max_pool_forward_naive(x, pool_param):
     ###########################################################################
     # TODO: Implement the max pooling forward pass                            #
     ###########################################################################
-    pass
+    HF = pool_param["pool_height"]
+    WF = pool_param["pool_width"]
+    stride = pool_param["stride"]
+    N, C, H, W = x.shape
+
+    HO = int((H - HF) / stride + 1)
+    WO = int((W - WF) / stride + 1)
+
+    all_cubes = my_im2col(x, (1, C, HF, WF), 0, stride)
+    all_cubes = all_cubes.reshape(N, HO*WO, C, HF*WF)
+
+    # Pooling happens.. (N, HO*WO, C, HF*WF) to (N, HO*WO, C)
+    out = np.max(all_cubes, axis=3)
+    # Transpose (N, HO*WO, C) to (N, C, HO*WO)
+    out = np.transpose(out, axes=(0,2,1))
+    # Split (N, C, HO*WO) to (N, C, HO, WO)
+    out = out.reshape(N, C, HO, WO)
+
+    # The last dimension is lost.. (N, HO*WO, C, HF*WF) to (N, HO*WO, C)
+    max_values = np.max(all_cubes, axis=3)
+    # Increase dimension by 1 in the end. (N, HO*WO, C) to (N, HO*WO, C, 1)
+    max_values = max_values[:, :, :, np.newaxis]
+    # Now ,create masks by broadcasting C along the ^^^ extra dimension added above )
+    # Save this in cache and use in backward pass.
+    all_cubes[all_cubes < max_values] = 0
+    all_cubes[all_cubes == max_values] = 1
+
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
-    cache = (x, pool_param)
+    cache = (x, pool_param, all_cubes)
     return out, cache
 
 
@@ -479,7 +557,24 @@ def max_pool_backward_naive(dout, cache):
     ###########################################################################
     # TODO: Implement the max pooling backward pass                           #
     ###########################################################################
-    pass
+    x, pool_param, all_cubes = cache
+    dx = x * 0
+    N, C, HO, WO = dout.shape
+    HF = pool_param["pool_height"]
+    WF = pool_param["pool_width"]
+    stride = pool_param["stride"]
+
+    # (N, C, HO, WO) converted to (N, C, HO*WO)
+    dout_flat = dout.reshape(N, C, -1)
+    # (N, C, HO*WO) converted to (N, HO*WO, C)
+    dout_flat = np.transpose(dout_flat, axes=(0,2,1))
+    # (N, HO*WO, C, HF*WF) multiplied by (N, HO*WO, C, 1).. So, in the last axis, broadcast happens.
+    # Therefore the gradients get multiplied. Only the max element's are 1, others are 0 in all_cubes
+    grads = all_cubes * dout_flat[:, :, :, np.newaxis]
+
+    for i in range(N):
+        dxi_pad = my_col2im(grads[i], x.shape, (1, C, HF, WF), 0, stride)
+        dx[i] = dxi_pad
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
