@@ -573,8 +573,7 @@ def max_pool_backward_naive(dout, cache):
     grads = all_cubes * dout_flat[:, :, :, np.newaxis]
 
     for i in range(N):
-        dxi_pad = my_col2im(grads[i], x.shape, (1, C, HF, WF), 0, stride)
-        dx[i] = dxi_pad
+        dx[i] = my_col2im(grads[i], x.shape, (1, C, HF, WF), 0, stride)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -612,7 +611,16 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     # version of batch normalization defined above. Your implementation should#
     # be very short; ours is less than five lines.                            #
     ###########################################################################
-    pass
+    N, C, H, W = x.shape
+    # (N, C, H, W) to (N, H, W, C)
+    x1 = np.transpose(x, axes=(0,2,3,1))
+    # (N, H, W, C) to (N*H*W, C)
+    x2 = x1.reshape(-1, C)
+    # using vanilla batchnorm
+    x2_normalized, cache = batchnorm_forward(x2, gamma, beta, bn_param)
+    # returning to original shape
+    x1_normalized = x2_normalized.reshape(N, H, W, C)
+    out = np.transpose(x1_normalized, axes=(0,3,1,2))
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -642,7 +650,16 @@ def spatial_batchnorm_backward(dout, cache):
     # version of batch normalization defined above. Your implementation should#
     # be very short; ours is less than five lines.                            #
     ###########################################################################
-    pass
+    N, C, H, W = dout.shape
+    # (N, C, H, W) to (N, H, W, C)
+    dout1 = np.transpose(dout, axes=(0,2,3,1))
+    # (N, H, W, C) to (N*H*W, C)
+    dout2 = dout1.reshape(-1, C)
+    # using vanilla batchnorm
+    dx, dgamma, dbeta = batchnorm_backward(dout2, cache)
+    # returning to original shape
+    dx = dx.reshape(N, H, W, C)
+    dx = np.transpose(dx, axes=(0,3,1,2))
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################

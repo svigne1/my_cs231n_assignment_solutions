@@ -2,7 +2,7 @@ pass
 from cs231n.layers import *
 from cs231n.fast_layers import *
 
-# Custom Affine-Batch-Relu layers
+# My custom Affine-Batch-Relu forward layer
 def affine_batch_relu_forward(x, w, b, gamma, beta, bn_param):
     """
     Convenience layer that perorms an affine transform followed by a ReLU
@@ -21,6 +21,7 @@ def affine_batch_relu_forward(x, w, b, gamma, beta, bn_param):
     cache = (fc_cache, batch_cache, relu_cache)
     return out, cache
 
+# My custom Affine-Batch-Relu backward layer
 def affine_batch_relu_backward(dout, cache):
     """
     Backward pass for the affine-relu convenience layer
