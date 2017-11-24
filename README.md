@@ -1,7 +1,7 @@
-These are my solutions to the cs231n course assignments, winter 2016.
+These are my solutions to the cs231n course assignments 2017.
 
-This course is mandatory for people interested in learning deep about deep networks.
+Thanks to Andrej Karpathy & the entire cs231n team for such a rockstar course!
 
-I'm indebted to Andrej Karpathy, Justin Johnson & the entire cs231n team forever!
+I have implemented some notebooks in PyTorch, and some in TensorFlow to improve my understanding of both.
 
-Thank you so much!
+Assignment2 notebooks i have implemented it in both.

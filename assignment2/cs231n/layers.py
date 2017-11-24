@@ -388,7 +388,7 @@ def conv_forward_naive(x, w, b, conv_param):
 
     Input:
     - x: Input data of shape (N, C, H, W)
-    - w: Filter weights of shape (F, C, HH, WW)
+    - w: Filter weights of shape (F, C, HF, WF)
     - b: Biases, of shape (F,)
     - conv_param: A dictionary with the following keys:
       - 'stride': The number of pixels between adjacent receptive fields in the
@@ -397,8 +397,8 @@ def conv_forward_naive(x, w, b, conv_param):
 
     Returns a tuple of:
     - out: Output data, of shape (N, F, H', W') where H' and W' are given by
-      H' = 1 + (H + 2 * pad - HH) / stride
-      W' = 1 + (W + 2 * pad - WW) / stride
+      HO = 1 + (H + 2 * pad - HF) / stride
+      WO = 1 + (W + 2 * pad - WF) / stride
     - cache: (x, w, b, conv_param)
     """
     out = None
@@ -417,6 +417,7 @@ def conv_forward_naive(x, w, b, conv_param):
     HO = int((H + 2*pad - HF) / stride + 1)
     WO = int((W + 2*pad - WF) / stride + 1)
 
+    # From (F, C, HF, WF) to (F, HF * WF * C)
     w_reshaped = w.reshape(F, -1)
 
     # Gives (N, HO*WO, HF * WF * C), the convolutional cubes extracted from original image
@@ -467,7 +468,7 @@ def conv_backward_naive(dout, cache):
     dout_flat = dout.reshape(N, F, -1)
 
     for i in range(N):
-        # (F, HO*WO) dotted with (HO*WO, HF*WF*C) and reshaped back to right dw shape
+        # (F, HO*WO) dotted with (HO*WO, HF*WF*C) and reshaped back to right dw shape (F, C, HF, WF)
         dw = dw + dout_flat[i].dot(x_conv[i]).reshape(F, C, HF, WF)
         # (HO*WO, F) dotted with (F, HF*WF*C)
         grads = dout_flat[i].T.dot(w_flat)
