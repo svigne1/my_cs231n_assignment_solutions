@@ -137,7 +137,21 @@ class CaptioningRNN(object):
         # defined above to store loss and gradients; grads[k] should give the      #
         # gradients for self.params[k].                                            #
         ############################################################################
-        pass
+        h0 = features.dot(self.params['W_proj']) + self.params['b_proj']
+        x, x_cache = word_embedding_forward(captions_in, self.params['W_embed'])
+
+        if self.cell_type == "rnn":
+            h, h_cache = rnn_forward(x, h0, self.params['Wx'], self.params['Wh'], self.params['b'])
+            out, out_cache = temporal_affine_forward(h, self.params['W_vocab'], self.params['b_vocab'])
+            loss, dout = temporal_softmax_loss(out, captions_out, mask)
+
+            dh, grads['W_vocab'], grads['b_vocab'] = temporal_affine_backward(dout, out_cache)
+            dx, dh0, grads['Wx'], grads['Wh'], grads['b'] = rnn_backward(dh, h_cache)
+            grads['W_embed'] = word_embedding_backward(dx, x_cache)
+
+            grads['W_proj'] = dh0.T.dot(features).T
+            grads['b_proj'] = np.sum(dh0, axis=0)
+
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -199,7 +213,27 @@ class CaptioningRNN(object):
         # functions; you'll need to call rnn_step_forward or lstm_step_forward in #
         # a loop.                                                                 #
         ###########################################################################
-        pass
+        h0 = features.dot(W_proj) + b_proj
+        h = h0
+        # Create (N, 1) array of self._start word in it. Since starting word for all N images is the same
+        word_idx = np.repeat(np.array([self._start]), N)[:, np.newaxis]
+        captions[:,0] = word_idx[:,0]
+
+        for i in range(max_length):
+            x, _ = word_embedding_forward(word_idx, W_embed)
+            N, T, D = x.shape
+
+            # Remove T dimension which is just 1 to use rnn_step_forward
+            x = x.reshape((N, D))
+            h, _ = rnn_step_forward(x, h, Wx, Wh, b)
+
+            # Include T dimension (1) to use temporal_affine_forward
+            h_withT = h[:, np.newaxis, :]
+            out, _ = temporal_affine_forward(h_withT, W_vocab, b_vocab)
+
+            word_idx = np.argmax(out, axis=2)
+            captions[:,i] = word_idx[:,0]
+
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
