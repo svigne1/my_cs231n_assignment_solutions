@@ -24,14 +24,14 @@ def my_im2col_indices(x_shape, w_shape, pad, stride=1):
     cube_i = np.tile(tile_i, C)
     cube_j = np.tile(tile_j, C)
 
-    # i indices for all cubes in output image aling with stride corrections
+    # i indices for all cubes in output image along with stride corrections
     x_cubes_i = np.tile(cube_i, WO)
     xy_cubes_i = np.tile(x_cubes_i, HO)
     stride_i = np.arange(HO) * stride
     stride_i = np.repeat(stride_i, x_cubes_i.shape[0])
     i = xy_cubes_i + stride_i
 
-    # j indices for all cubes in output image aling with stride corrections
+    # j indices for all cubes in output image along with stride corrections
     x_cubes_j = np.tile(cube_j, WO)
     stride_j = np.arange(WO) * stride
     stride_j = np.repeat(stride_j, cube_j.shape[0])
