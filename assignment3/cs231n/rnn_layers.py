@@ -8,6 +8,8 @@ This file defines layer types that are commonly used for recurrent neural
 networks.
 """
 
+# Check out Peter-Roelants jupyter notebook blog 
+# https://peterroelants.github.io/posts/rnn-implementation-part01/
 
 def rnn_step_forward(x, prev_h, Wx, Wh, b):
     """
