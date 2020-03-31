@@ -70,7 +70,10 @@ def rnn_step_backward(dnext_h, cache):
     x, prev_h, Wx, Wh, next_h = cache
 
     # Backward Pass of tanh
-    # dtanh(x) -> 4*sigmoid(2x)*(1-sigmoid(2x)) -> (1 + tanh(x))*(1 - tanh(x)) -> 1 - tanh(x)**2
+    # tanh(x) = 2sigmoid(2x) -1
+    # dsigmoid = sigmoid(x)*(1-sigmoid(x))
+    # dtanh(x) = 4*sigmoid(2x)*(1-sigmoid(2x)) = (2sigmoid(2x) -1 + 1)*(1 + 1 - 2sigmoid(2x)) 
+    # = (1 + tanh(x))*(1 - tanh(x)) = 1 - tanh(x)**2
     dlocal = 1 - np.square(next_h)
     dnext_h = dlocal * dnext_h
 
